@@ -9,6 +9,7 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddSignalR();
+builder.Services.AddHttpClient();
 
 
 var app = builder.Build();
@@ -32,10 +33,6 @@ app.UseCors(policy =>
 {
     policy.AllowAnyMethod()
           .AllowAnyHeader()
-          //.AllowAnyOrigin()
-          //.WithOrigins("https://localhost:7233", "http://192.168.56.1:7233", "http://192.168.8.157:7233", "https://192.168.56.1:7233", "https://192.168.8.157:7233") // Add your specific origins here
-          //.WithOrigins("https://localhost:7233", "http://192.168.8.157:7233", "http://192.168.8.157:7233", "https://192.168.56.1:7233", "https://192.168.8.157:7233") // Add your specific origins here
-          //.WithOrigins("https://localhost:7233", "http://192.168.56.1:7233")
           .WithOrigins("http://127.0.0.1:7233")
           .AllowCredentials(); // Allow credentials for the specified origins
 });

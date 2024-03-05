@@ -33,13 +33,15 @@ namespace maproute_simulation_SignalR_1.Controllers
             {
                 // Parse GPX file
                 var gpxData = await ParseGPXFile(stream);
+                var totalDuration = 10; //Min
                 Console.WriteLine("GPX file parsed successfully.");
 
                 // Print the first 5 coordinates
                 PrintFirstFiveCoordinates(gpxData);
 
                 // Send location data to connected clients
-                await SendLocationDataToClients(gpxData);
+                //await SendLocationDataToClients(gpxData);
+                await SendLocationDataToClients(gpxData, totalDuration);
                 Console.WriteLine("SignalR started sending data to clients.");
             }
 
@@ -168,7 +170,7 @@ namespace maproute_simulation_SignalR_1.Controllers
         }
 
 
-        private async Task SendLocationDataToClients(GpxData gpxData)
+        private async Task SendLocationDataToClients0(GpxData gpxData)
         {
             // Ensure there are track points in the GPX data
             if (gpxData == null || gpxData.TrackPoints == null || gpxData.TrackPoints.Count == 0)
@@ -206,6 +208,69 @@ namespace maproute_simulation_SignalR_1.Controllers
                 await Task.Delay(TimeSpan.FromSeconds(timeIntervalSeconds));
             }
         }
+
+        private async Task SendLocationDataToClients(GpxData gpxData, int totalDurationMinutes)
+        {
+            // Ensure there are track points in the GPX data
+            if (gpxData == null || gpxData.TrackPoints == null || gpxData.TrackPoints.Count == 0)
+            {
+                Console.WriteLine("No track points found in GPX data.");
+                return;
+            }
+
+            // Calculate the time interval between each point
+            double timeIntervalSeconds = 2;
+
+            // Calculate the total number of points to send
+            int numPoints = (int)(totalDurationMinutes * 60 / timeIntervalSeconds);
+
+            // Ensure we have at least two points to interpolate between
+            if (numPoints < 2)
+            {
+                Console.WriteLine("Insufficient duration to interpolate points.");
+                return;
+            }
+
+            // Calculate the total time spanned by the GPX data
+            double totalTime = (gpxData.TrackPoints.Count - 1) * timeIntervalSeconds;
+
+            // Calculate the time interval between each GPX data point
+            double gpxTimeInterval = totalTime / (gpxData.TrackPoints.Count - 1);
+
+            // Interpolation factor
+            double interpolationFactor = totalTime / (numPoints - 1);
+
+            // Iterate through the desired number of points to send
+            for (int i = 0; i < numPoints; i++)
+            {
+                // Calculate the target time for the current interpolated point
+                double targetTime = i * interpolationFactor;
+
+                // Find the appropriate track points to interpolate between
+                int startIndex = (int)(targetTime / gpxTimeInterval);
+                int endIndex = startIndex + 1;
+
+                if (endIndex >= gpxData.TrackPoints.Count)
+                    endIndex = gpxData.TrackPoints.Count - 1;
+
+                var currentPoint = gpxData.TrackPoints[startIndex];
+                var nextPoint = gpxData.TrackPoints[endIndex];
+
+                // Calculate the interpolated coordinates
+                double currentTime = targetTime - (startIndex * gpxTimeInterval);
+                double interpolatedLatitude = Interpolate(currentPoint.Latitude, nextPoint.Latitude, currentTime, gpxTimeInterval);
+                double interpolatedLongitude = Interpolate(currentPoint.Longitude, nextPoint.Longitude, currentTime, gpxTimeInterval);
+
+                Console.WriteLine($"Interpolated Location: Latitude = {interpolatedLatitude}, Longitude = {interpolatedLongitude}");
+
+                // Send the interpolated coordinates to clients
+                await _hubContext.Clients.All.SendAsync("ReceiveLocationData", interpolatedLatitude, interpolatedLongitude);
+
+                // Delay for the specified time interval
+                await Task.Delay(TimeSpan.FromSeconds(timeIntervalSeconds));
+            }
+        }
+
 
         private double Interpolate(double startValue, double endValue, double currentTime, double totalTime)
         {
