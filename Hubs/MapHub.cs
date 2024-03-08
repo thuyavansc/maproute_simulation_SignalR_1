@@ -22,6 +22,7 @@ namespace maproute_simulation_SignalR_1.Hubs
         private const int DriverToPickupTotalDurationMinutes = 10; // Total duration from driver's current location to pickup location in minutes
         private const int SignalRIntervalSeconds = 2; // Interval between SignalR updates in seconds
         private static RouteDetails routeDetailsVal;
+        private static RouteDetails routeTripDetailsVal;
 
         public MapHub(HttpClient httpClient)
         {
@@ -62,20 +63,40 @@ namespace maproute_simulation_SignalR_1.Hubs
                 routeDetailsVal = routeDetails;
                 Console.WriteLine($"AcceptRide 0 : Retrieved route details: {JsonConvert.SerializeObject(routeDetails)}");
 
-                if (routeDetails != null)
-                {
-                    routeDetailsVal = routeDetails;
-                    Console.WriteLine($"AcceptRide 1 : Retrieved route details: {JsonConvert.SerializeObject(routeDetails)}");
-                    Console.WriteLine($"AcceptRide 2 : Retrieved route details: {JsonConvert.SerializeObject(routeDetailsVal)}");
-                }
-                else
-                {
-                    Console.WriteLine("Error: Retrieved route details is null.");
-                }
-
-
                 // Step 3: Calculate interpolated driver coordinates along the route
                 //await SendDriverLocationUpdates(routeDetails, DriverToPickupTotalDurationMinutes, SignalRIntervalSeconds);
+                await NotifyNewRide(pickupLatitude, pickupLongitude, dropoffLatitude, dropoffLongitude);
+
+            }
+            catch (Exception ex)
+            {
+                // Handle exceptions
+                Console.WriteLine($"Error: {ex.Message}");
+            }
+        }
+
+        public async Task SimulateDriverTrip(string pickupLatitude, string pickupLongitude, string dropoffLatitude, string dropoffLongitude)
+        {
+            try
+            {
+                Console.WriteLine("Received request to simulate driver.");
+                Console.WriteLine($"Pickup Location: ({pickupLatitude}, {pickupLongitude})");
+                Console.WriteLine($"Dropoff Location: ({dropoffLatitude}, {dropoffLongitude})");
+
+                // Convert latitude and longitude strings to double
+                double pickupLat = double.Parse(pickupLatitude);
+                double pickupLon = double.Parse(pickupLongitude);
+                double dropoffLat = double.Parse(dropoffLatitude);
+                double dropoffLon = double.Parse(dropoffLongitude);
+
+                // Step 1: Retrieve route coordinates from the pickup location to the random location
+                RouteDetails routeDetails = await GetRouteDetails(pickupLat, pickupLon, dropoffLat, dropoffLon);
+                Console.WriteLine($"Retrieved route details: {JsonConvert.SerializeObject(routeDetails)}");
+                routeTripDetailsVal = routeDetails;
+                Console.WriteLine($"AcceptRide 0 : Retrieved route details: {JsonConvert.SerializeObject(routeDetails)}");
+
+                // Step 2: Calculate interpolated driver coordinates along the route
+                await SendDriverTripLocationUpdates(routeDetails, DriverToPickupTotalDurationMinutes, SignalRIntervalSeconds);
                 await NotifyNewRide(pickupLatitude, pickupLongitude, dropoffLatitude, dropoffLongitude);
 
             }
@@ -173,6 +194,40 @@ namespace maproute_simulation_SignalR_1.Hubs
 
                     await Task.Delay(signalRIntervalSeconds * 1000);
                 }
+                Console.WriteLine("Completed : SendDriverLocationUpdates - Driver Reached Pickup Location");
+                String message = "Driver has reached the pickup point";
+                await Clients.All.SendAsync("DriverReachedPickup", message);
+            }
+            else
+            {
+                Console.WriteLine("Route details or coordinates are null.");
+            }
+        }
+
+
+        private async Task SendDriverTripLocationUpdates(RouteDetails routeDetails, int totalDurationMinutes, int signalRIntervalSeconds)
+        {
+            Console.WriteLine("Entered a Method: SendDriverLocationUpdates");
+
+            if (routeDetails != null && routeDetails.Features != null && routeDetails.Features.Length > 0 && routeDetails.Features[0].Geometry != null && routeDetails.Features[0].Geometry.Coordinates != null)
+            {
+                double[][][] coordinates = routeDetails.Features[0].Geometry.Coordinates;
+                int numSteps = coordinates[0].Length;
+
+                for (int i = 0; i < numSteps; i++)
+                {
+                    double latitude = coordinates[0][i][1]; // Latitude is at index 1
+                    double longitude = coordinates[0][i][0]; // Longitude is at index 0
+
+                    Console.WriteLine("Latitude: " + latitude + ", Longitude: " + longitude);
+
+                    await Clients.All.SendAsync("DriverTripLocationUpdate", latitude, longitude);
+
+                    await Task.Delay(signalRIntervalSeconds * 1000);
+                }
+                Console.WriteLine("Completed : SendDriverTripLocationUpdates - Driver Reached DropOff Location");
+                String message = "Driver has reached the dropOff point";
+                await Clients.All.SendAsync("DriverReachedDropOff", message);
             }
             else
             {
@@ -247,6 +302,8 @@ namespace maproute_simulation_SignalR_1.Hubs
             await SendDriverLocationUpdates(routeDetailsVal, DriverToPickupTotalDurationMinutes, SignalRIntervalSeconds);
 
         }
+
+
 
         public async Task SayHi(string pickupLatitude)
         {
