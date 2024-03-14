@@ -40,7 +40,9 @@ using Microsoft.Extensions.DependencyInjection;
 //                double pickupLon = double.Parse(pickupLongitude);
 
 //                // Step 1: Find a random location near the pickup location as Driver Current location
-//                GeoCoordinates driverLocation = await GetRandomLocation(pickupLat, pickupLon);
+//                GeoCoordinates driverLocation = await
+//
+//                (pickupLat, pickupLon);
 //                Console.WriteLine($"Generated driver location: ({driverLocation.Latitude}, {driverLocation.Longitude})");
 
 //                // Step 2: Retrieve route coordinates from the pickup location to the random location

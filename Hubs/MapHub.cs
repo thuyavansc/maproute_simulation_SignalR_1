@@ -12,6 +12,7 @@ using maproute_simulation_SignalR_1.Hubs;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using maproute_simulation_SignalR_1.Models;
+using PolylinerNet;
 
 namespace maproute_simulation_SignalR_1.Hubs
 {
@@ -174,7 +175,7 @@ namespace maproute_simulation_SignalR_1.Hubs
             }
         }
 
-        private async Task SendDriverLocationUpdates(RouteDetails routeDetails, int totalDurationMinutes, int signalRIntervalSeconds)
+        private async Task SendDriverLocationUpdates2(RouteDetails routeDetails, int totalDurationMinutes, int signalRIntervalSeconds)
         {
             Console.WriteLine("Entered a Method: SendDriverLocationUpdates");
 
@@ -203,6 +204,207 @@ namespace maproute_simulation_SignalR_1.Hubs
                 Console.WriteLine("Route details or coordinates are null.");
             }
         }
+
+        private async Task SendDriverLocationUpdates3(RouteDetails routeDetails, int totalDurationMinutes, int signalRIntervalSeconds, double driverLatitude, double driverLongitude)
+        {
+            Console.WriteLine("Entered a Method: SendDriverLocationUpdates");
+
+            if (routeDetails != null && routeDetails.Features != null && routeDetails.Features.Length > 0 && routeDetails.Features[0].Geometry != null && routeDetails.Features[0].Geometry.Coordinates != null)
+            {
+                double[][][] coordinates = routeDetails.Features[0].Geometry.Coordinates;
+
+                // Construct the polyline from pickup location to current driver location
+                string encodedPolyline = ConstructPolyline(coordinates, driverLatitude, driverLongitude);
+                Console.WriteLine("Encoded Polyline: " + encodedPolyline);
+
+                // Send the encoded polyline along with driver location to clients
+                await Clients.All.SendAsync("DriverLocationUpdate", encodedPolyline, driverLatitude, driverLongitude);
+
+                await Task.Delay(signalRIntervalSeconds * 1000);
+                Console.WriteLine("Completed : SendDriverLocationUpdates - Driver Reached Pickup Location");
+                String message = "Driver has reached the pickup point";
+                await Clients.All.SendAsync("DriverReachedPickup", message);
+            }
+            else
+            {
+                Console.WriteLine("Route details or coordinates are null.");
+            }
+        }
+
+        private async Task SendDriverLocationUpdates4(RouteDetails routeDetails, int totalDurationMinutes, int signalRIntervalSeconds)
+        {
+            Console.WriteLine("Entered a Method: SendDriverLocationUpdates");
+
+            if (routeDetails != null && routeDetails.Features != null && routeDetails.Features.Length > 0 && routeDetails.Features[0].Geometry != null && routeDetails.Features[0].Geometry.Coordinates != null)
+            {
+                double[][][] coordinates = routeDetails.Features[0].Geometry.Coordinates;
+
+                // Get the driver's current location from the route details
+                double driverLatitude = coordinates[0][coordinates[0].Length - 1][1];
+                double driverLongitude = coordinates[0][coordinates[0].Length - 1][0];
+
+                // Construct the polyline from pickup location to current driver location
+                string encodedPolyline = ConstructPolyline(coordinates, driverLatitude, driverLongitude);
+                Console.WriteLine("Encoded Polyline: ");
+                Console.WriteLine("Encoded Polyline: " + encodedPolyline);
+
+                // Send the encoded polyline along with driver location to clients
+                await Clients.All.SendAsync("DriverLocationUpdate", driverLatitude, driverLongitude, encodedPolyline);
+
+                await Task.Delay(signalRIntervalSeconds * 1000);
+                Console.WriteLine("Completed : SendDriverLocationUpdates - Driver Reached Pickup Location");
+                String message = "Driver has reached the pickup point";
+                await Clients.All.SendAsync("DriverReachedPickup", message);
+            }
+            else
+            {
+                Console.WriteLine("Route details or coordinates are null.");
+            }
+        }
+
+        private async Task SendDriverLocationUpdates(RouteDetails routeDetails, int totalDurationMinutes, int signalRIntervalSeconds)
+        {
+            Console.WriteLine("Entered a Method: SendDriverLocationUpdates");
+
+            if (routeDetails != null && routeDetails.Features != null && routeDetails.Features.Length > 0 && routeDetails.Features[0].Geometry != null && routeDetails.Features[0].Geometry.Coordinates != null)
+            {
+                double[][][] coordinates = routeDetails.Features[0].Geometry.Coordinates;
+                int numSteps = coordinates[0].Length;
+
+                for (int i = 0; i < numSteps; i++)
+                {
+                    double latitude = coordinates[0][i][1]; // Latitude is at index 1
+                    double longitude = coordinates[0][i][0]; // Longitude is at index 0
+
+                    Console.WriteLine("Latitude: " + latitude + ", Longitude: " + longitude);
+
+                    // Construct the polyline from pickup location to current driver location
+                    string encodedPolyline = ConstructPolyline(coordinates, latitude, longitude);
+                    Console.WriteLine("Encoded Polyline: " + encodedPolyline);
+                    Console.WriteLine("Latitude: " + latitude + ", Longitude: " + longitude);
+
+                    // Send the encoded polyline along with driver location to clients
+                    await Clients.All.SendAsync("DriverLocationUpdate", latitude, longitude, encodedPolyline);
+
+                    await Task.Delay(signalRIntervalSeconds * 1000);
+                }
+                Console.WriteLine("Completed : SendDriverLocationUpdates - Driver Reached Pickup Location");
+                String message = "Driver has reached the pickup point";
+                await Clients.All.SendAsync("DriverReachedPickup", message);
+            }
+            else
+            {
+                Console.WriteLine("Route details or coordinates are null.");
+            }
+        }
+
+
+
+
+        private string ConstructPolylineIncrement0(double[][][] coordinates, double driverLatitude, double driverLongitude)
+        {
+            // Find the index of the driver's current location in the coordinates array
+            int currentIndex = FindCurrentLocationIndex(coordinates, driverLatitude, driverLongitude);
+
+            // Construct a list of PolylinePoint from the pickup location to the current location
+            List<PolylinePoint> points = new List<PolylinePoint>();
+            for (int i = 0; i <= currentIndex; i++)
+            {
+                double lat = coordinates[0][i][1];
+                double lon = coordinates[0][i][0];
+                points.Add(new PolylinePoint(lat, lon));
+            }
+
+            // Create a Polyliner instance
+            var polyliner = new Polyliner();
+
+            // Encode the polyline
+            string encodedPolyline = polyliner.Encode(points);
+
+            return encodedPolyline;
+        }
+
+        private string ConstructPolylineIncrement1(double[][][] coordinates, double driverLatitude, double driverLongitude)
+        {
+            // Find the index of the driver's current location in the coordinates array
+            int currentIndex = FindCurrentLocationIndex(coordinates, driverLatitude, driverLongitude);
+
+            // Construct a list of PolylinePoint from the pickup location to the current location in reverse order
+            List<PolylinePoint> points = new List<PolylinePoint>();
+            for (int i = currentIndex; i >= 0; i--)
+            {
+                double lat = coordinates[0][i][1];
+                double lon = coordinates[0][i][0];
+                points.Add(new PolylinePoint(lat, lon));
+            }
+
+            // Create a Polyliner instance
+            var polyliner = new Polyliner();
+
+            // Encode the polyline
+            string encodedPolyline = polyliner.Encode(points);
+
+            return encodedPolyline;
+        }
+
+        private string ConstructPolylineIncre3(double[][][] coordinates, double driverLatitude, double driverLongitude)
+        {
+            int currentIndex = FindCurrentLocationIndex(coordinates, driverLatitude, driverLongitude);
+
+            List<PolylinePoint> points = new List<PolylinePoint>();
+            for (int i = currentIndex; i >= 0; i--) // Iterate in reverse order
+            {
+                double lat = coordinates[0][i][1];
+                double lon = coordinates[0][i][0];
+                points.Add(new PolylinePoint(lat, lon));
+            }
+
+            var polyliner = new Polyliner();
+            string encodedPolyline = polyliner.Encode(points);
+
+            return encodedPolyline;
+        }
+
+        private string ConstructPolyline(double[][][] coordinates, double driverLatitude, double driverLongitude)
+        {
+            // Find the index of the driver's current location in the coordinates array
+            int currentIndex = FindCurrentLocationIndex(coordinates, driverLatitude, driverLongitude);
+
+            // Construct a list of PolylinePoint from the pickup location to the current location in reverse order
+            List<PolylinePoint> points = new List<PolylinePoint>();
+            for (int i = coordinates[0].Length - 1; i >= currentIndex; i--)
+            {
+                double lat = coordinates[0][i][1];
+                double lon = coordinates[0][i][0];
+                points.Add(new PolylinePoint(lat, lon));
+            }
+
+            // Create a Polyliner instance
+            var polyliner = new Polyliner();
+
+            // Encode the polyline
+            string encodedPolyline = polyliner.Encode(points);
+
+            return encodedPolyline;
+        }
+
+
+
+        // Helper method to find the index of the driver's current location in the coordinates array
+        private int FindCurrentLocationIndex(double[][][] coordinates, double driverLatitude, double driverLongitude)
+        {
+            for (int i = 0; i < coordinates[0].Length; i++)
+            {
+                double lat = coordinates[0][i][1];
+                double lon = coordinates[0][i][0];
+                if (lat == driverLatitude && lon == driverLongitude)
+                {
+                    return i; // Return the index when the current location is found
+                }
+            }
+            return -1; // Return -1 if current location is not found (this should not happen in practice)
+        }
+
 
 
         private async Task SendDriverTripLocationUpdates(RouteDetails routeDetails, int totalDurationMinutes, int signalRIntervalSeconds)
@@ -336,4 +538,18 @@ namespace maproute_simulation_SignalR_1.Hubs
         public string Type { get; set; }
         public double[][][] Coordinates { get; set; }
     }
+
+    // PolylinePoint class representing a single point in a polyline
+    //public class PolylinePoint
+    //{
+    //    public double Latitude { get; set; }
+    //    public double Longitude { get; set; }
+
+    //    public PolylinePoint(double latitude, double longitude)
+    //    {
+    //        Latitude = latitude;
+    //        Longitude = longitude;
+    //    }
+    //}
+
 }
