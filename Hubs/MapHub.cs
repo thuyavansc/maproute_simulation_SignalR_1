@@ -421,9 +421,12 @@ namespace maproute_simulation_SignalR_1.Hubs
                     double latitude = coordinates[0][i][1]; // Latitude is at index 1
                     double longitude = coordinates[0][i][0]; // Longitude is at index 0
 
+                    string encodedPolyline = ConstructPolyline(coordinates, latitude, longitude);
+                    Console.WriteLine("Trip Encoded Polyline: " + encodedPolyline);
                     Console.WriteLine("Latitude: " + latitude + ", Longitude: " + longitude);
 
-                    await Clients.All.SendAsync("DriverTripLocationUpdate", latitude, longitude);
+                    // Send the encoded polyline along with driver Trip location to clients
+                    await Clients.All.SendAsync("DriverTripLocationUpdate", latitude, longitude, encodedPolyline);
 
                     await Task.Delay(signalRIntervalSeconds * 1000);
                 }
